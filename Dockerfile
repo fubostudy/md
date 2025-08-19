@@ -3,7 +3,7 @@ WORKDIR /app
 
 # 仅复制包管理文件，利用缓存层
 COPY package*.json ./
-RUN npm ci --no-audit --no-fund
+RUN npm ci --no-audit --no-fund --ignore-scripts
 
 # 复制源码并构建（默认部署到根路径 /）
 COPY . .
