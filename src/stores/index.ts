@@ -597,19 +597,78 @@ export const useStore = defineStore(`store`, () => {
     exportPureHTML(editor.value!.getValue(), posts.value[currentPostIndex.value].title)
   }
 
-  // 下载卡片
+  // 下载卡片（导出 PNG）
   const downloadAsCardImage = async () => {
     const el = document.querySelector<HTMLElement>(`#output-wrapper>.preview`)!
-    const url = await toPng(el, {
-      backgroundColor: isDark.value ? `` : `#fff`,
-      skipFonts: true,
-      pixelRatio: Math.max(window.devicePixelRatio || 1, 2),
-      style: {
-        margin: `0`,
-      },
-    })
 
-    downloadFile(url, `${sanitizeTitle(posts.value[currentPostIndex.value].title)}.png`, `image/png`)
+    // 临时展开滚动容器，避免表格/长内容被截断
+    const cleanups: Array<() => void> = []
+    const setStyle = (node: HTMLElement | null | undefined, prop: string, value: string) => {
+      if (!node)
+        return
+      const prev = node.style.getPropertyValue(prop)
+      node.style.setProperty(prop, value, `important`)
+      cleanups.push(() => {
+        if (prev)
+          node.style.setProperty(prop, prev)
+        else
+          node.style.removeProperty(prop)
+      })
+    }
+
+    try {
+      // 1) 预览区与导出节点自身去掉 overflow 限制
+      const previewWrapper = document.querySelector<HTMLElement>(`.preview-wrapper`)
+      setStyle(previewWrapper, `overflow`, `visible`)
+      setStyle(el, `overflow`, `visible`)
+
+      // 2) 表格外层 section 默认 overflow:auto；导出时放开并移除 max-width 限制
+      const sections = el.querySelectorAll<HTMLElement>(`section`)
+      sections.forEach((section) => {
+        if (section.querySelector(`.preview-table`)) {
+          setStyle(section, `overflow`, `visible`)
+          setStyle(section, `max-width`, `none`)
+          // 让表格内容按内容宽度展开，避免横向截断
+          setStyle(section, `width`, `fit-content`)
+        }
+      })
+
+      // 3) 计算需要导出的完整尺寸（包含滚动区域）
+      const exportWidth = Math.max(el.scrollWidth, el.clientWidth)
+      const exportHeight = Math.max(el.scrollHeight, el.clientHeight)
+
+      // 4) 为导出的图片额外增加右侧留白
+      const extraRightPaddingPx = 32
+      const computed = window.getComputedStyle(el)
+      const basePaddingRight = Number.parseFloat(computed.paddingRight || `0`) || 0
+      const finalPaddingRight = `${basePaddingRight + extraRightPaddingPx}px`
+
+      const exportWidthWithExtra = exportWidth + extraRightPaddingPx
+
+      const url = await toPng(el, {
+        backgroundColor: isDark.value ? `` : `#fff`,
+        skipFonts: true,
+        pixelRatio: Math.max(window.devicePixelRatio || 1, 2),
+        width: exportWidthWithExtra,
+        height: exportHeight,
+        style: {
+          margin: `0`,
+          // 只在导出时增加右边距
+          paddingRight: finalPaddingRight,
+          boxSizing: `border-box`,
+        },
+      })
+
+      downloadFile(url, `${sanitizeTitle(posts.value[currentPostIndex.value].title)}.png`, `image/png`)
+    }
+    catch (err) {
+      console.error(`导出 PNG 失败:`, err)
+      toast.error(`导出 PNG 失败`)
+    }
+    finally {
+      // 恢复样式
+      cleanups.forEach(fn => fn())
+    }
   }
 
   // 导出编辑器内容为 PDF
