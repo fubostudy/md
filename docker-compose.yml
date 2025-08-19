@@ -1,0 +1,13 @@
+services:
+  md:
+    build:
+      context: .
+      args:
+        # ROOT: 部署到根路径 / （默认）
+        # SUBPATH: 部署到子路径 /md/
+        BUILD_TARGET: ROOT
+    image: fubostudy/md:latest
+    container_name: md
+    restart: unless-stopped
+    ports:
+      - '8080:80'
