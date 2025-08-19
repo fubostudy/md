@@ -13,7 +13,7 @@ ENV CI=1
 # - ROOT（默认）：部署到根路径 /
 # - SUBPATH：部署到子路径 /md/
 ARG BUILD_TARGET=ROOT
-RUN if [ "$BUILD_TARGET" = "SUBPATH" ]; then npm run build; else npm run build:h5-netlify; fi
+RUN if [ "$BUILD_TARGET" = "SUBPATH" ]; then npm run build:only; else npm run build:h5-netlify:only; fi
 
 # 运行时镜像：使用 Nginx 提供静态资源
 FROM nginx:1.25-alpine
